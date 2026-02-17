@@ -1,8 +1,14 @@
-use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
+use bevy_ecs::message::MessageWriter;
+use bevy_ecs::prelude::{Entity, Query, Res};
+use interactions::block_interactions::is_interactive;
 use temper_codec::net_types::network_position::NetworkPosition;
 use temper_components::bounds::CollisionBounds;
+use temper_codec::net_types::var_int::VarInt;
 use temper_components::player::position::Position;
+use temper_components::{bounds::CollisionBounds, player::sneak::SneakState};
+use temper_core::block_data::BlockData;
 use temper_core::pos::BlockPos;
+use temper_messages::{BlockCoords, BlockInteractMessage};
 use temper_net_runtime::connection::StreamWriter;
 use temper_protocol::PlaceBlockReceiver;
 use temper_protocol::outgoing::block_change_ack::BlockChangeAck;
@@ -34,12 +40,14 @@ pub fn handle(
         &Hotbar,
         &Position,
         &Rotation,
+        &SneakState,
     )>,
     pos_q: Query<(&Position, &CollisionBounds)>,
     mut world_change: MessageWriter<WorldChange>,
+    mut interact_writer: MessageWriter<BlockInteractMessage>,
 ) {
     'ev_loop: for (event, eid) in receiver.0.try_iter() {
-        let Ok((entity, conn, inventory, hotbar, pos, rot)) = query.get(eid) else {
+        let Ok((entity, conn, inventory, hotbar, pos, rot, sneak_state)) = query.get(eid) else {
             debug!("Could not get connection for entity {:?}", eid);
             continue;
         };
@@ -47,6 +55,50 @@ pub fn handle(
             trace!("Entity {:?} is not connected", entity);
             continue;
         }
+
+        // Convert network position to block position (the block that was clicked)
+        let clicked_pos: BlockPos = event.position.clone().into();
+
+        // Check if the clicked block is interactive and the player is NOT sneaking
+        {
+            let chunk_result = temper_world::World::get_or_generate_mut(
+                &state.0.world,
+                clicked_pos.chunk(),
+                Dimension::Overworld,
+            );
+            let chunk = match chunk_result {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to load chunk for interaction check: {:?}", e);
+                    continue 'ev_loop;
+                }
+            };
+
+            let clicked_block_state = chunk.get_block(clicked_pos.chunk_block_pos());
+
+            debug!(
+                "PlaceBlock event: pos=({}, {}, {}), clicked_block_state={} (raw: {})",
+                clicked_pos.pos.x,
+                clicked_pos.pos.y,
+                clicked_pos.pos.z,
+                clicked_block_state,
+                clicked_block_state.raw()
+            );
+
+            if !sneak_state.is_sneaking && is_interactive(clicked_block_state) {
+                interact_writer.write(BlockInteractMessage {
+                    player: entity,
+                    position: BlockCoords {
+                        x: clicked_pos.pos.x,
+                        y: clicked_pos.pos.y,
+                        z: clicked_pos.pos.z,
+                    },
+                    sequence: event.sequence,
+                });
+                continue 'ev_loop;
+            }
+        }
+
         match event.hand.0 {
             0 => {
                 let Ok(slot) = hotbar.get_selected_item(inventory) else {
@@ -213,6 +265,11 @@ pub fn handle(
                                 && (block_chunk_z - chunk_z).abs() <= render_distance
                                 && let Err(err) = conn.send_packet_ref(&chunk_packet)
                             {
+                                error!("Failed to send block update packet: {:?}", err);
+                            }
+                        }
+                        if let Some(ref upper_update) = upper_half_update {
+                            if let Err(err) = conn.send_packet_ref(upper_update) {
                                 error!("Failed to send block update packet: {:?}", err);
                             }
                         }
