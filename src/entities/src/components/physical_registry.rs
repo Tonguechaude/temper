@@ -151,4 +151,3 @@ impl PhysicalRegistry {
             .or_else(|| self.properties.get(&(protocol_id, false)))
     }
 }
-

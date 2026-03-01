@@ -14,4 +14,3 @@ use bevy_ecs::prelude::Component;
 /// When present, physics systems will use baby-scaled properties.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Baby;
-
