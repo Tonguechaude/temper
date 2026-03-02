@@ -1,5 +1,6 @@
 use bevy_ecs::message::MessageWriter;
 use bevy_ecs::prelude::{DetectChanges, Entity, Has, Query, Res, With};
+use bevy_ecs::world::Mut;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 use bevy_math::{IVec3, Vec3A};
 use temper_components::player::grounded::OnGround;
@@ -16,18 +17,17 @@ use temper_macros::match_block;
 use temper_messages::entity_update::SendEntityUpdate;
 use temper_state::{GlobalState, GlobalStateResource};
 
+type CollisionQueryItem<'a> = (
+    Entity,
+    Mut<'a, Velocity>,
+    Mut<'a, Position>,
+    &'a EntityMetadata,
+    Has<Baby>,
+    Mut<'a, OnGround>,
+);
+
 pub fn handle(
-    query: Query<
-        (
-            Entity,
-            &mut Velocity,
-            &mut Position,
-            &EntityMetadata,
-            Has<Baby>,
-            &mut OnGround,
-        ),
-        With<HasCollisions>,
-    >,
+    query: Query<CollisionQueryItem, With<HasCollisions>>,
     mut writer: MessageWriter<SendEntityUpdate>,
     state: Res<GlobalStateResource>,
     registry: Res<PhysicalRegistry>,
