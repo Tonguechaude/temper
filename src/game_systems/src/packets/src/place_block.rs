@@ -264,10 +264,10 @@ pub fn handle(
                                 error!("Failed to send block update packet: {:?}", err);
                             }
                         }
-                        if let Some(ref upper_update) = upper_half_update {
-                            if let Err(err) = conn.send_packet_ref(upper_update) {
-                                error!("Failed to send block update packet: {:?}", err);
-                            }
+                        if let Some(ref upper_update) = upper_half_update
+                            && let Err(err) = conn.send_packet_ref(upper_update)
+                        {
+                            error!("Failed to send block update packet: {:?}", err);
                         }
                     }
                 }
