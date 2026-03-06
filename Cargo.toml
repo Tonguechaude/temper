@@ -45,7 +45,6 @@ members = [
     "src/particles",
     "src/performance",
     "src/physics",
-    "src/plugins",
     "src/registry",
     "src/resources",
     "src/scheduler",
@@ -128,7 +127,6 @@ temper-performance = { path = "src/performance" }
 temper-codec = { path = "src/net/codec" }
 temper-protocol = { path = "src/net/protocol" }
 temper-encryption = { path = "src/net/encryption" }
-temper-plugins = { path = "src/plugins" }
 temper-profiling = { path = "src/base/profiling" }
 temper-registry = { path = "src/registry" }
 temper-scheduler = { path = "src/scheduler" }
