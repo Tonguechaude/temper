@@ -1,6 +1,5 @@
 mod blocks;
 mod errors;
-mod utils;
 
 use crate::errors::BlockPlaceError;
 use bevy_math::DVec3;

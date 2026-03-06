@@ -2,7 +2,7 @@ use bevy_ecs::system::{Query, Res};
 use temper_inventories::defined_slots;
 use temper_inventories::inventory::Inventory;
 use temper_protocol::CloseContainerReceiver;
-use tracing::{debug, error};
+use tracing::error;
 
 /// Called when a player closes a container.
 ///

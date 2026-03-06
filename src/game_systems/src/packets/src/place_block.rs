@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::{Entity, MessageWriter, Query, Res};
 use temper_codec::net_types::network_position::NetworkPosition;
-use temper_codec::net_types::var_int::VarInt;
 use temper_components::bounds::CollisionBounds;
 use temper_components::player::position::Position;
 use temper_core::pos::BlockPos;
@@ -13,12 +12,10 @@ use tracing::{debug, error, trace};
 
 use bevy_math::DVec3;
 use block_placing::PlacedBlocks;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::str::FromStr;
 use temper_components::player::rotation::Rotation;
 use temper_config::server_config::get_global_config;
-use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
+use temper_core::block_state_id::BlockStateId;
 use temper_core::dimension::Dimension;
 use temper_core::mq;
 use temper_inventories::hotbar::Hotbar;

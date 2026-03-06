@@ -3,7 +3,7 @@ use temper_codec::net_types::var_int::VarInt;
 use temper_inventories::INVENTORY_UPDATES_QUEUE;
 use temper_net_runtime::connection::StreamWriter;
 use temper_state::GlobalStateResource;
-use tracing::{debug, error};
+use tracing::error;
 
 pub fn handle_inventory_updates(state: Res<GlobalStateResource>, mut query: Query<&StreamWriter>) {
     while let Some(update) = INVENTORY_UPDATES_QUEUE.pop() {

@@ -2,7 +2,7 @@ use bevy_ecs::prelude::{Query, Res};
 use temper_inventories::inventory::Inventory;
 use temper_protocol::SetCreativeModeSlotReceiver;
 use temper_state::GlobalStateResource;
-use tracing::{debug, error};
+use tracing::error;
 
 pub fn handle(
     receiver: Res<SetCreativeModeSlotReceiver>,

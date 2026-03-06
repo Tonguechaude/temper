@@ -68,7 +68,7 @@ impl PlacableBlock for PlaceableDoor {
                 ("powered".to_string(), "false".to_string()),
             ])),
         };
-        let Some(bottom_block_id) = bottom_block.clone().try_to_block_state_id() else {
+        let Some(bottom_block_id) = bottom_block.try_to_block_state_id() else {
             error!("Block data '{bottom_block}' could not be converted to a block state ID");
             return Err(BlockPlaceError::BlockNotMappedToBlockStateId(bottom_block));
         };
@@ -109,7 +109,7 @@ impl PlacableBlock for PlaceableDoor {
         Ok(PlacedBlocks {
             blocks: std::collections::HashMap::from([
                 (context.block_position, bottom_block_id),
-                ((context.block_position + (0, 1, 0)), upper_block_id),
+                (context.block_position + (0, 1, 0), upper_block_id),
             ]),
             take_item: true,
         })
