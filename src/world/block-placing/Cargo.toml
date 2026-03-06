@@ -14,3 +14,4 @@ temper-codec = { workspace = true }
 temper-macros = { workspace = true }
 temper-state = { workspace = true }
 tracing = { workspace = true }
+thiserror = { workspace = true }

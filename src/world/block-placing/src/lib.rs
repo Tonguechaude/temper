@@ -1,7 +1,10 @@
 mod blocks;
+mod errors;
+mod utils;
 
+use crate::errors::BlockPlaceError;
 use bevy_math::DVec3;
-use std::error::Error;
+use std::collections::HashMap;
 use temper_components::player::position::Position;
 use temper_components::player::rotation::Rotation;
 use temper_core::block_state_id::{BlockStateId, ITEM_TO_BLOCK_MAPPING};
@@ -10,8 +13,20 @@ use temper_core::pos::BlockPos;
 use temper_inventories::item::ItemID;
 use temper_macros::item;
 use temper_state::GlobalState;
-use tracing::error;
 
+pub struct PlacedBlocks {
+    pub blocks: HashMap<BlockPos, BlockStateId>,
+    pub take_item: bool,
+}
+
+pub trait PlacableBlock {
+    fn place(
+        context: BlockPlaceContext,
+        state: GlobalState,
+    ) -> Result<PlacedBlocks, BlockPlaceError>;
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum BlockFace {
     Top,
     Bottom,
@@ -28,15 +43,21 @@ pub struct BlockPlaceContext {
     pub click_position: DVec3,
     pub player_position: Position,
     pub player_rotation: Rotation,
+    pub item_used: ItemID,
 }
 
 pub fn place_item(
     state: GlobalState,
     context: BlockPlaceContext,
-    item: ItemID,
-) -> (bool, Option<BlockStateId>) {
-    let res = match item {
-        item!("torch") => blocks::torch::place_torch(context, state),
+) -> Result<PlacedBlocks, BlockPlaceError> {
+    match context.item_used {
+        item!("torch") => blocks::torch::PlaceableTorch::place(context, state),
+        item!("oak_door")
+        | item!("birch_door")
+        | item!("spruce_door")
+        | item!("jungle_door")
+        | item!("acacia_door")
+        | item!("dark_oak_door") => blocks::door::PlaceableDoor::place(context, state),
 
         unhandled => {
             let block_opt = ITEM_TO_BLOCK_MAPPING.get(&unhandled.0.0);
@@ -47,17 +68,16 @@ pub fn place_item(
                 {
                     Ok(mut chunk) => {
                         chunk.set_block(context.block_position.chunk_block_pos(), *block);
-                        Ok((true, Some(*block)))
+                        Ok(PlacedBlocks {
+                            blocks: HashMap::from([(context.block_position, *block)]),
+                            take_item: true,
+                        })
                     }
                     Err(e) => Err(e.into()),
                 }
             } else {
-                Ok((false, None))
+                Err(BlockPlaceError::ItemNotPlaceable(context.item_used))
             }
         }
-    };
-    res.unwrap_or_else(|e| {
-        error!("Error placing block: {}", e);
-        (false, None)
-    })
+    }
 }

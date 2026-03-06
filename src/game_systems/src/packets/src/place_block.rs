@@ -12,6 +12,7 @@ use temper_state::GlobalStateResource;
 use tracing::{debug, error, trace};
 
 use bevy_math::DVec3;
+use block_placing::PlacedBlocks;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -154,7 +155,7 @@ pub fn handle(
                         continue 'ev_loop;
                     }
 
-                    let (remove_item, placed_block) = block_placing::place_item(
+                    let placed_blocks = block_placing::place_item(
                         state.0.clone(),
                         block_placing::BlockPlaceContext {
                             block_clicked,
@@ -178,48 +179,55 @@ pub fn handle(
                             ),
                             player_position: *pos,
                             player_rotation: *rot,
+                            item_used: item_id,
                         },
-                        item_id,
-                    );
+                    )
+                    .unwrap_or_else(|err| {
+                        error!("Block placement failed: {:?}", err);
+                        PlacedBlocks {
+                            blocks: HashMap::new(),
+                            take_item: false,
+                        }
+                    });
 
-                    if let Some(placed_block) = placed_block {
+                    for (block_pos, block_state) in placed_blocks.blocks {
+                        let block_chunk = block_pos.chunk();
                         world_change.write(WorldChange {
-                            chunk: Some(offset_pos.chunk()),
+                            chunk: Some(block_chunk),
                         });
-                        let ack_packet = BlockChangeAck {
-                            sequence: event.sequence,
-                        };
 
                         let chunk_packet = BlockUpdate {
                             location: NetworkPosition {
-                                x: offset_pos.pos.x,
-                                y: offset_pos.pos.y as i16,
-                                z: offset_pos.pos.z,
+                                x: block_pos.pos.x,
+                                y: block_pos.pos.y as i16,
+                                z: block_pos.pos.z,
                             },
-                            block_state_id: placed_block.to_varint(),
+                            block_state_id: block_state.to_varint(),
                         };
 
-                        if let Err(err) = conn.send_packet_ref(&ack_packet) {
-                            error!("Failed to send block change ack packet: {:?}", err);
-                            continue 'ev_loop;
-                        }
-
-                        let offset_chunk = offset_pos.chunk();
-                        let (offset_chunk_x, offset_chunk_z) = (offset_chunk.x(), offset_chunk.z());
+                        let (block_chunk_x, block_chunk_z) = (block_chunk.x(), block_chunk.z());
                         let render_distance = get_global_config().chunk_render_distance as i32;
-                        for (_, conn, _, _, pos, rot) in query.iter() {
+                        for (_, conn, _, _, pos, _) in query.iter() {
                             let chunk = pos.chunk();
                             let (chunk_x, chunk_z) = (chunk.x(), chunk.z());
 
                             // Only send block update if the player is within the render distance of the block being updated
-                            if (offset_chunk_x - chunk_x).abs() <= render_distance
-                                && (offset_chunk_z - chunk_z).abs() <= render_distance
+                            if (block_chunk_x - chunk_x).abs() <= render_distance
+                                && (block_chunk_z - chunk_z).abs() <= render_distance
                                 && let Err(err) = conn.send_packet_ref(&chunk_packet)
                             {
                                 error!("Failed to send block update packet: {:?}", err);
                             }
                         }
                     }
+                }
+                let ack_packet = BlockChangeAck {
+                    sequence: event.sequence,
+                };
+
+                if let Err(err) = conn.send_packet_ref(&ack_packet) {
+                    error!("Failed to send block change ack packet: {:?}", err);
+                    continue 'ev_loop;
                 }
             }
             1 => {
