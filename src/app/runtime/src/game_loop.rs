@@ -16,23 +16,23 @@ use std::time::{Duration, Instant};
 use temper_commands::infrastructure::register_command_systems;
 use temper_config::server_config::get_global_config;
 use temper_game_systems::{
-    LanPinger, chunk_unloader, keep_alive_system, register_background_systems,
-    register_mob_systems, register_packet_handlers, register_physics_systems,
-    register_player_systems, register_shutdown_systems, register_world_systems, update_player_ping,
-    world_sync,
+    chunk_unloader, keep_alive_system, register_background_systems, register_mob_systems,
+    register_packet_handlers, register_physics_systems, register_player_systems,
+    register_shutdown_systems, register_world_systems, update_player_ping, world_sync,
+    LanPinger,
 };
 use temper_messages::register_messages;
-use temper_net_runtime::connection::{NewConnection, handle_connection};
+use temper_net_runtime::connection::{handle_connection, NewConnection};
 use temper_net_runtime::server::create_server_listener;
-use temper_performance::ServerPerformance;
 use temper_performance::tick::TickData;
-use temper_protocol::{PacketSender, create_packet_senders};
+use temper_performance::ServerPerformance;
+use temper_protocol::{create_packet_senders, PacketSender};
 use temper_resources::register_resources;
 use temper_scheduler::MissedTickBehavior;
-use temper_scheduler::{Scheduler, TimedSchedule, drain_registered_schedules};
+use temper_scheduler::{drain_registered_schedules, Scheduler, TimedSchedule};
 use temper_state::{GlobalState, GlobalStateResource};
 use temper_utils::formatting::format_duration;
-use tracing::{Instrument, debug, error, info, info_span, trace, warn};
+use tracing::{debug, error, info, info_span, trace, warn, Instrument};
 
 /// Main entry point for the server game loop.
 ///
@@ -209,7 +209,10 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
                 ran_count,
             };
 
-            let mut performance = ecs_world.resource_mut::<ServerPerformance>();
+            let mut performance = global_state
+                .performance
+                .lock()
+                .expect("Failed to lock performance resource");
             performance.tps.record_tick(tick_data);
         }
     }

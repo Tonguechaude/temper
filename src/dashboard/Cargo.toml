@@ -14,11 +14,13 @@ serde_json = { workspace = true }
 include_dir = { workspace = true }
 mime_guess = { workspace = true }
 dir-size = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
 
 # temper local crates
 temper-state = { workspace = true }
 temper-general-purpose = { workspace = true }
 temper-config = { workspace = true }
+temper-performance = { workspace = true }
 
 [build-dependencies]
 reqwest = { workspace = true }

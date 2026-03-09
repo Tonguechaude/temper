@@ -4,10 +4,8 @@ use crate::time::WorldTime;
 use crate::world_sync_tracker::WorldSyncTracker;
 use bevy_ecs::prelude::World;
 use crossbeam_channel::Receiver;
-use temper_config::server_config::get_global_config;
 use temper_entities::PhysicalRegistry;
 use temper_net_runtime::connection::NewConnection;
-use temper_performance::ServerPerformance;
 use temper_state::GlobalStateResource;
 
 pub mod new_conn;
@@ -27,7 +25,6 @@ pub fn register_resources(
         last_synced: std::time::Instant::now(),
     });
     world.insert_resource(WorldTime::default());
-    world.insert_resource(ServerPerformance::new(get_global_config().tps));
     world.insert_resource(ServerCommandReceiver(server_command_recv));
     world.insert_resource(PhysicalRegistry::new());
 }

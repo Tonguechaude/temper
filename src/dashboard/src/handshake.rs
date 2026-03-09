@@ -11,6 +11,8 @@ pub struct SystemData {
     pub cpu_cores: usize,
     /// Number of logical threads (including hyperthreading)
     pub cpu_threads: usize,
+    /// OS name and version (e.g., "Windows 10 Pro 10.0.19044")
+    pub os: String,
 }
 
 /// Server configuration data
@@ -41,11 +43,14 @@ impl Handshake {
 
         let cpu_cores = System::physical_core_count().unwrap_or(1);
         let cpu_threads = sys.cpus().len();
+        
+        let os = format!("{} {} {}", System::name().unwrap_or_default(), System::os_version().unwrap_or_default(), System::kernel_version().unwrap_or_default());
 
         let system = SystemData {
             cpu_model,
             cpu_cores,
             cpu_threads,
+            os,
         };
 
         let config = ConfigData {

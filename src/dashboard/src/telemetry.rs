@@ -1,13 +1,16 @@
 use crate::handshake::Handshake;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use temper_config::server_config::get_global_config;
+use temper_performance::memory::MemoryUnit;
 use temper_state::GlobalState;
 use tokio::sync::broadcast::Sender;
 use tokio::time::interval;
 use tracing::{debug, error};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ServerMetric {
@@ -23,6 +26,14 @@ pub struct ServerMetric {
     pub storage_used: u64,
     /// Number of connected players
     pub player_count: usize,
+    pub tps: f32,
+    pub players: Vec<PlayerInfo>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PlayerInfo {
+    name: String,
+    uuid: Uuid,
 }
 
 /// Events sent from the server to the dashboard (websocket)
@@ -69,15 +80,31 @@ pub async fn start_telemetry_loop(tx: Sender<DashboardEvent>, state: GlobalState
             0
         };
 
+        let cpu_count = sys.cpus().len() as f32;
+
         let player_count = state.players.player_list.len();
+        let mut perf_lock = state
+            .performance
+            .lock()
+            .expect("Failed to lock performance resource");
 
         let metric = ServerMetric {
-            cpu_usage: process.cpu_usage(),
-            ram_usage: process.memory(),
+            cpu_usage: process.cpu_usage() / cpu_count,
+            ram_usage: perf_lock.memory.get_memory(MemoryUnit::Bytes).0,
             total_ram: sys.total_memory(),
             uptime: process.run_time(),
             storage_used,
             player_count,
+            tps: perf_lock.tps.tps(Duration::from_secs(1)),
+            players: state
+                .players
+                .player_list
+                .iter()
+                .map(|kv| PlayerInfo {
+                    name: kv.value().1.clone(),
+                    uuid: Uuid::from_u128(kv.value().0),
+                })
+                .collect(),
         };
 
         // Broadcast to all connected web clients
