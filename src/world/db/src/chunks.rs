@@ -55,39 +55,6 @@ pub fn load_chunk_internal(
     }
 }
 
-pub fn load_chunk_batch_internal(
-    storage: &LmdbBackend,
-    coords: &[(ChunkPos, Dimension)],
-) -> Result<Vec<Chunk>, WorldError> {
-    let digests = coords
-        .iter()
-        .map(|&(pos, dim)| create_key(dim, pos))
-        .collect();
-    storage
-        .batch_get("chunks".to_string(), digests)?
-        .iter()
-        .map(|chunk| match chunk {
-            Some(compressed) => {
-                let (data, checksum) = yazi::decompress(compressed, yazi::Format::Zlib)?;
-                if get_global_config().database.verify_chunk_data {
-                    if let Some(expected_checksum) = checksum {
-                        let real_checksum = yazi::Adler32::from_buf(data.as_slice()).finish();
-                        if real_checksum != expected_checksum {
-                            return Err(CorruptedChunkData(real_checksum, expected_checksum));
-                        }
-                    } else {
-                        warn!("Chunk data does not have a checksum, skipping verification.");
-                    }
-                }
-                let chunk: Chunk = bitcode::decode(&data)
-                    .map_err(|e| WorldError::BitcodeDecodeError(e.to_string()))?;
-                Ok(chunk)
-            }
-            None => Err(WorldError::ChunkNotFound),
-        })
-        .collect()
-}
-
 pub fn chunk_exists_internal(
     storage: &LmdbBackend,
     pos: ChunkPos,

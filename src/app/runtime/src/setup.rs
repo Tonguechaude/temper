@@ -2,27 +2,15 @@
 
 use crate::errors::BinaryError;
 use std::time::Instant;
+use temper_components::player::offline_player_data::OfflinePlayerData;
 use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
-use temper_state::player_list::PlayerList;
-use temper_state::{GlobalState, ServerState};
-use temper_threadpool::ThreadPool;
-use temper_world::World;
+use temper_state::GlobalState;
+use temper_storage::string_to_u128;
+use temper_world_format::Chunk;
 use tracing::{error, info};
-
-/// Creates the initial server state with all required components.
-pub fn create_state(start_time: Instant) -> Result<ServerState, BinaryError> {
-    // Fixed seed for world generation. This seed ensures you spawn above land at the default spawn point.
-    const SEED: u64 = 380;
-    Ok(ServerState {
-        world: World::new(&get_global_config().database.db_path, SEED),
-        shut_down: false.into(),
-        players: PlayerList::default(),
-        thread_pool: ThreadPool::new(),
-        start_time,
-    })
-}
+use type_hash::TypeHash;
 
 /// Generates spawn chunks around the origin if they don't exist.
 pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
@@ -61,5 +49,26 @@ pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
     batch.wait();
 
     info!("Finished generating spawn chunks in {:?}", start.elapsed());
+    Ok(())
+}
+
+pub fn setup_db(state: GlobalState) -> Result<(), BinaryError> {
+    info!("Setting up database...");
+
+    let chunk_key = string_to_u128("chunk-format-hash");
+    state.world.storage_backend.insert(
+        "metadata".to_string(),
+        chunk_key,
+        Chunk::type_hash().to_be_bytes().to_vec(),
+    )?;
+
+    let player_key = string_to_u128("player-format-hash");
+    state.world.storage_backend.insert(
+        "metadata".to_string(),
+        player_key,
+        OfflinePlayerData::type_hash().to_be_bytes().to_vec(),
+    )?;
+
+    info!("Database setup complete.");
     Ok(())
 }

@@ -2,8 +2,9 @@ use crate::BlockStateId;
 use crate::section::AIR;
 use bitcode_derive::{Decode, Encode};
 use deepsize::DeepSizeOf;
+use type_hash::TypeHash;
 
-#[derive(Clone, DeepSizeOf, Encode, Decode)]
+#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
 pub struct UniformSection(BlockStateId);
 
 impl UniformSection {

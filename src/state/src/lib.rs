@@ -5,6 +5,7 @@ use bevy_ecs::prelude::Resource;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
+use temper_config::server_config::get_global_config;
 use temper_threadpool::ThreadPool;
 use temper_world::World;
 use tempfile::TempDir;
@@ -37,4 +38,17 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
 
     let global_state = Arc::new(server_state);
     (GlobalStateResource(global_state), temp_dir)
+}
+
+/// Creates the initial server state with all required components.
+pub fn create_state(start_time: Instant) -> ServerState {
+    // Fixed seed for world generation. This seed ensures you spawn above land at the default spawn point.
+    const SEED: u64 = 380;
+    ServerState {
+        world: World::new(&get_global_config().database.db_path, SEED),
+        shut_down: false.into(),
+        players: PlayerList::default(),
+        thread_pool: ThreadPool::new(),
+        start_time,
+    }
 }

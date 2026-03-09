@@ -4,13 +4,12 @@ use heed::byteorder::BigEndian;
 use heed::types::{Bytes, U128};
 use heed::{Database, Env, EnvOpenOptions, WithoutTls};
 use parking_lot::Mutex;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct LmdbBackend {
-    env: Arc<Mutex<Env<WithoutTls>>>,
+    pub env: Arc<Mutex<Env<WithoutTls>>>,
 }
 
 impl From<heed::Error> for StorageError {
@@ -119,41 +118,6 @@ impl LmdbBackend {
         Ok(true)
     }
 
-    pub fn batch_upsert(
-        &self,
-        table: String,
-        data: Vec<(u128, Vec<u8>)>,
-    ) -> Result<(), StorageError> {
-        let env = self.env.lock();
-        let mut rw_txn = env.write_txn()?;
-
-        // Open or create the database for the given table
-        let db = env.create_database::<U128<BigEndian>, Bytes>(&mut rw_txn, Some(&table))?;
-
-        // Create a map of keys and their associated values
-        let keymap: HashMap<u128, &Vec<u8>> = data.iter().map(|(k, v)| (*k, v)).collect();
-
-        // Iterate through the keys in sorted order
-        let mut sorted_keys: Vec<u128> = keymap.keys().cloned().collect();
-        sorted_keys.sort();
-
-        // Iterate through the sorted keys to perform upserts
-        for key in sorted_keys {
-            // Check if the key already exists
-            if db.get(&rw_txn, &key)?.is_some() {
-                // Update the value if it exists (you can modify this logic as needed)
-                db.put(&mut rw_txn, &key, keymap[&key])?;
-            } else {
-                // Insert the new key-value pair if the key doesn't exist
-                db.put(&mut rw_txn, &key, keymap[&key])?;
-            }
-        }
-
-        // Commit the transaction after all upserts are performed
-        rw_txn.commit()?;
-        Ok(())
-    }
-
     pub fn exists(&self, table: String, key: u128) -> Result<bool, StorageError> {
         let env = self.env.lock();
         let ro_txn = env.read_txn()?;
@@ -174,51 +138,6 @@ impl LmdbBackend {
         format!("LMDB (heed 0.20.5): {:?}", self.env.lock().info())
     }
 
-    pub fn batch_insert(
-        &self,
-        table: String,
-        data: Vec<(u128, Vec<u8>)>,
-    ) -> Result<(), StorageError> {
-        let env = self.env.lock();
-        let mut rw_txn = env.write_txn()?;
-        let db = env.create_database::<U128<BigEndian>, Bytes>(&mut rw_txn, Some(&table))?;
-
-        let keymap: HashMap<u128, &Vec<u8>> = data.iter().map(|(k, v)| (*k, v)).collect();
-        let mut sorted_keys: Vec<u128> = keymap.keys().cloned().collect();
-        sorted_keys.sort();
-
-        for key in sorted_keys {
-            if db.get(&rw_txn, &key)?.is_some() {
-                return Err(StorageError::KeyExists(key as u64));
-            }
-            db.put(&mut rw_txn, &key, keymap[&key])?;
-        }
-        rw_txn.commit()?;
-        Ok(())
-    }
-
-    pub fn batch_get(
-        &self,
-        table: String,
-        keys: Vec<u128>,
-    ) -> Result<Vec<Option<Vec<u8>>>, StorageError> {
-        let env = self.env.lock();
-        let ro_txn = env.read_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = env
-            .open_database(&ro_txn, Some(&table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
-        let mut values = Vec::new();
-        for key in keys {
-            let value = db.get(&ro_txn, &key)?;
-            if let Some(v) = value {
-                values.push(Some(v.to_vec()));
-            } else {
-                values.push(None);
-            }
-        }
-        Ok(values)
-    }
-
     pub fn flush(&self) -> Result<(), StorageError> {
         let env = self.env.lock();
         env.clear_stale_readers()?;
@@ -237,6 +156,10 @@ impl LmdbBackend {
     pub fn close(&self) -> Result<(), StorageError> {
         self.flush()?;
         Ok(())
+    }
+
+    pub fn get_env(&self) -> Arc<Mutex<Env<WithoutTls>>> {
+        self.env.clone()
     }
 }
 
@@ -268,28 +191,6 @@ mod tests {
                 .unwrap();
             let retrieved_value = backend.get("test_table".to_string(), key).unwrap();
             assert_eq!(retrieved_value, Some(value));
-        }
-        remove_dir_all(path).unwrap();
-    }
-
-    #[test]
-    fn test_batch_insert() {
-        let path = tempdir().unwrap().keep();
-        {
-            let backend =
-                LmdbBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
-            backend.create_table("test_table".to_string()).unwrap();
-            let data = vec![
-                (12345678901234567890u128, vec![1, 2, 3]),
-                (12345678901234567891u128, vec![4, 5, 6]),
-            ];
-            backend
-                .batch_insert("test_table".to_string(), data.clone())
-                .unwrap();
-            for (key, value) in data {
-                let retrieved_value = backend.get("test_table".to_string(), key).unwrap();
-                assert_eq!(retrieved_value, Some(value));
-            }
         }
         remove_dir_all(path).unwrap();
     }

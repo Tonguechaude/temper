@@ -14,9 +14,10 @@ use deepsize::DeepSizeOf;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::{ChunkBlockPos, ChunkHeight};
 use temper_macros::block;
+use type_hash::TypeHash;
 use vanilla_chunk_format::VanillaChunk;
 
-#[derive(Clone, DeepSizeOf, Encode, Decode)]
+#[derive(Clone, DeepSizeOf, Encode, Decode, TypeHash)]
 pub struct Chunk {
     pub sections: Box<[ChunkSection]>,
     height: ChunkHeight,

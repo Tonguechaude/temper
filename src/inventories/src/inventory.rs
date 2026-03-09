@@ -4,8 +4,9 @@ use crate::slot::InventorySlot;
 use crate::{INVENTORY_UPDATES_QUEUE, InventoryUpdate};
 use bevy_ecs::prelude::{Component, Entity};
 use bitcode_derive::{Decode, Encode};
+use type_hash::TypeHash;
 
-#[derive(Component, Clone, Debug, Decode, Encode)]
+#[derive(Component, Clone, Debug, Decode, Encode, TypeHash)]
 pub struct Inventory {
     pub slots: Box<[Option<InventorySlot>]>,
 }

@@ -21,7 +21,7 @@ use wyhash::WyHasherBuilder;
 
 #[derive(Clone)]
 pub struct World {
-    storage_backend: LmdbBackend,
+    pub storage_backend: LmdbBackend,
     cache: ChunkCache,
     pub world_generator: WorldGenerator,
 }

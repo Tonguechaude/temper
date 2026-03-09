@@ -36,6 +36,8 @@ pub enum Command {
     Run,
     /// Clear server data (configs, whitelist, logs, world)
     Clear(ClearArgs),
+    /// Validate the world data (checks for missing chunks, corrupted chunks, etc.)
+    Validate,
 }
 
 /// Arguments for the clear command.
