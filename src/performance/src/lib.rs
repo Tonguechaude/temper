@@ -1,4 +1,3 @@
-use bevy_ecs::resource::Resource;
 use tracing::warn;
 
 use crate::{memory::MemoryUsage, tps::TPSMonitor};
@@ -9,7 +8,7 @@ pub mod tps;
 
 pub const WINDOW_SECONDS: usize = 60;
 
-/// Core ECS resource for all server performance metrics.
+/// Core tracker for all server performance metrics.
 ///
 /// This resource is updated once per tick by the main scheduler
 /// loop and can be queried by commands, debug tools, or plugins.
@@ -36,7 +35,6 @@ pub const WINDOW_SECONDS: usize = 60;
 /// - Tick durations
 /// - Rolling TPS (1s / 5s / 15s windows)
 /// - Memory Usage (Current / Peak)
-#[derive(Resource)]
 pub struct ServerPerformance {
     pub tps: TPSMonitor,
     pub memory: MemoryUsage,
@@ -45,7 +43,7 @@ pub struct ServerPerformance {
 impl ServerPerformance {
     pub fn new(tps: u32) -> Self {
         if !sysinfo::IS_SUPPORTED_SYSTEM {
-            warn!("System does not support 'sysinfo', disabling server performance statisics.");
+            warn!("System does not support 'sysinfo', metrics are likely to be inaccurate or unavailable");
         }
 
         Self {

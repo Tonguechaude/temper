@@ -9,7 +9,7 @@ pub struct TickData {
 }
 #[derive(Debug)]
 pub(crate) struct TickHistory {
-    buffer: VecDeque<TickData>,
+    pub(crate) buffer: VecDeque<TickData>,
     capacity: usize,
 }
 

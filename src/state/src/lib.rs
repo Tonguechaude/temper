@@ -3,9 +3,10 @@ pub mod player_list;
 use crate::player_list::PlayerList;
 use bevy_ecs::prelude::Resource;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use temper_config::server_config::get_global_config;
+use temper_performance::ServerPerformance;
 use temper_threadpool::ThreadPool;
 use temper_world::World;
 use tempfile::TempDir;
@@ -16,6 +17,7 @@ pub struct ServerState {
     pub players: PlayerList, // (UUID, Username)
     pub thread_pool: ThreadPool,
     pub start_time: Instant,
+    pub performance: Mutex<ServerPerformance>,
 }
 
 pub type GlobalState = Arc<ServerState>;
@@ -34,6 +36,7 @@ pub fn create_test_state() -> (GlobalStateResource, TempDir) {
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),
         start_time: Instant::now(),
+        performance: ServerPerformance::new(20).into(),
     };
 
     let global_state = Arc::new(server_state);
@@ -50,5 +53,6 @@ pub fn create_state(start_time: Instant) -> ServerState {
         players: PlayerList::default(),
         thread_pool: ThreadPool::new(),
         start_time,
+        performance: ServerPerformance::new(get_global_config().tps).into(),
     }
 }

@@ -24,7 +24,6 @@ use temper_game_systems::{
 use temper_messages::register_messages;
 use temper_net_runtime::connection::{NewConnection, handle_connection};
 use temper_net_runtime::server::create_server_listener;
-use temper_performance::ServerPerformance;
 use temper_performance::tick::TickData;
 use temper_protocol::{PacketSender, create_packet_senders};
 use temper_resources::register_resources;
@@ -209,7 +208,10 @@ pub fn start_game_loop(global_state: GlobalState, no_tui: bool) -> Result<(), Bi
                 ran_count,
             };
 
-            let mut performance = ecs_world.resource_mut::<ServerPerformance>();
+            let mut performance = global_state
+                .performance
+                .lock()
+                .expect("Failed to lock performance resource");
             performance.tps.record_tick(tick_data);
         }
     }

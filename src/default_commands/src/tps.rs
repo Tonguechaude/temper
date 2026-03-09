@@ -1,17 +1,28 @@
+use bevy_ecs::prelude::ResMut;
 use std::time::Duration;
-
-use bevy_ecs::system::ResMut;
 use temper_commands::Sender;
 use temper_macros::command;
-use temper_performance::{memory::MemoryUnit, ServerPerformance};
+use temper_performance::memory::MemoryUnit;
+use temper_state::GlobalStateResource;
 use temper_text::{NamedColor, TextComponent, TextComponentBuilder};
 
 #[command("tps")]
-fn tps_command(#[sender] sender: Sender, performance_res: ResMut<ServerPerformance>) {
-    let performance = performance_res.into_inner();
+fn tps_command(#[sender] sender: Sender, state: ResMut<GlobalStateResource>) {
+    let (current, peak) = {
+        let mut perf_lock = state
+            .0
+            .performance
+            .lock()
+            .expect("Failed to lock performance resource");
+        perf_lock.memory.get_memory(MemoryUnit::Kilobytes)
+    };
 
-    let tps = &performance.tps;
-    let (current, peak) = performance.memory.get_memory(MemoryUnit::Kilobytes);
+    let perf_lock = state
+        .0
+        .performance
+        .lock()
+        .expect("Failed to lock performance resource");
+    let tps = &perf_lock.tps;
 
     sender.send_message(
         TextComponentBuilder::new("Server Performance\n")
