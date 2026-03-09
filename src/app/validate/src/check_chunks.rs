@@ -24,7 +24,7 @@ pub fn check_chunks(state: &ServerState) -> Result<(), String> {
             );
             if chunk_format_hash_str != Chunk::type_hash() {
                 error!(
-                    "Chunk format hash mismatch. Expected {}, got {}. This likely means that the chunk format has changed since saving. If you have \
+                    "Chunk format hash mismatch. Expected 0X{:0X}, got 0X{:0X}. This likely means that the chunk format has changed since saving. If you have \
                     recently updated Temper you will have to go back to the older version until a world format converter is implemented.)",
                     Chunk::type_hash(),
                     chunk_format_hash_str
