@@ -5,8 +5,8 @@ use temper_world_format::errors::WorldError;
 use temper_world_format::Chunk;
 use tracing::trace;
 use world_db::chunks::{
-    chunk_exists_internal, delete_chunk_internal, load_chunk_batch_internal, load_chunk_internal,
-    save_chunk_internal, sync_internal,
+    chunk_exists_internal, delete_chunk_internal, load_chunk_internal, save_chunk_internal,
+    sync_internal,
 };
 
 impl World {
@@ -114,60 +114,5 @@ impl World {
         }
 
         sync_internal(&self.storage_backend)
-    }
-
-    /// Load a batch of chunks from the storage backend.
-    ///
-    /// This function attempts to load as many chunks as it can find from the cache first, then fetches
-    /// the missing chunks from the storage backend. The chunks are then inserted into the cache and
-    /// returned as a vector.
-    pub fn load_chunk_batch(
-        &'_ self,
-        coords: &'_ [(ChunkPos, Dimension)],
-    ) -> Result<Vec<RefChunk<'_>>, WorldError> {
-        let mut found_chunks = Vec::new();
-        let mut missing_chunks = Vec::new();
-        for coord in coords {
-            if let Some(chunk) = self.cache.get(&(coord.0, coord.1)) {
-                found_chunks.push(chunk);
-            } else {
-                missing_chunks.push(*coord);
-            }
-        }
-        let fetched = load_chunk_batch_internal(&self.storage_backend, &missing_chunks)?;
-        for (chunk, (pos, dimension)) in fetched.into_iter().zip(missing_chunks) {
-            self.cache.insert((pos, dimension), chunk);
-            let found_chunk = self
-                .cache
-                .get(&(pos, dimension))
-                .expect("Chunk was just inserted into the cache");
-            found_chunks.push(found_chunk);
-        }
-        Ok(found_chunks)
-    }
-
-    pub fn load_chunk_batch_mut(
-        &'_ self,
-        coords: &'_ [(ChunkPos, Dimension)],
-    ) -> Result<Vec<MutChunk<'_>>, WorldError> {
-        let mut found_chunks = Vec::new();
-        let mut missing_chunks = Vec::new();
-        for coord in coords {
-            if let Some(chunk) = self.cache.get_mut(&(coord.0, coord.1)) {
-                found_chunks.push(chunk);
-            } else {
-                missing_chunks.push(*coord);
-            }
-        }
-        let fetched = load_chunk_batch_internal(&self.storage_backend, &missing_chunks)?;
-        for (chunk, (pos, dimension)) in fetched.into_iter().zip(missing_chunks) {
-            self.cache.insert((pos, dimension), chunk);
-            let found_chunk = self
-                .cache
-                .get_mut(&(pos, dimension))
-                .expect("Chunk was just inserted into the cache");
-            found_chunks.push(found_chunk);
-        }
-        Ok(found_chunks)
     }
 }

@@ -174,6 +174,12 @@ impl ChunkPos {
     pub fn pack(&self) -> u64 {
         (((self.z() as u64) & ((1 << 22) - 1)) << 22) | ((self.x() as u64) & ((1 << 22) - 1))
     }
+
+    pub fn unpack(data: u64) -> Self {
+        let x = (data & ((1 << 22) - 1)) as i32;
+        let z = ((data >> 22) & ((1 << 22) - 1)) as i32;
+        Self::new(x, z)
+    }
 }
 
 impl Display for ChunkPos {

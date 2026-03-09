@@ -3,9 +3,9 @@ use temper_config::server_config::get_global_config;
 use temper_core::dimension::Dimension;
 use temper_core::pos::ChunkPos;
 use temper_storage::lmdb::LmdbBackend;
-use temper_world_format::Chunk;
 use temper_world_format::errors::WorldError;
 use temper_world_format::errors::WorldError::CorruptedChunkData;
+use temper_world_format::Chunk;
 use tracing::warn;
 use yazi::CompressionLevel;
 
@@ -53,39 +53,6 @@ pub fn load_chunk_internal(
         }
         None => Err(WorldError::ChunkNotFound),
     }
-}
-
-pub fn load_chunk_batch_internal(
-    storage: &LmdbBackend,
-    coords: &[(ChunkPos, Dimension)],
-) -> Result<Vec<Chunk>, WorldError> {
-    let digests = coords
-        .iter()
-        .map(|&(pos, dim)| create_key(dim, pos))
-        .collect();
-    storage
-        .batch_get("chunks".to_string(), digests)?
-        .iter()
-        .map(|chunk| match chunk {
-            Some(compressed) => {
-                let (data, checksum) = yazi::decompress(compressed, yazi::Format::Zlib)?;
-                if get_global_config().database.verify_chunk_data {
-                    if let Some(expected_checksum) = checksum {
-                        let real_checksum = yazi::Adler32::from_buf(data.as_slice()).finish();
-                        if real_checksum != expected_checksum {
-                            return Err(CorruptedChunkData(real_checksum, expected_checksum));
-                        }
-                    } else {
-                        warn!("Chunk data does not have a checksum, skipping verification.");
-                    }
-                }
-                let chunk: Chunk = bitcode::decode(&data)
-                    .map_err(|e| WorldError::BitcodeDecodeError(e.to_string()))?;
-                Ok(chunk)
-            }
-            None => Err(WorldError::ChunkNotFound),
-        })
-        .collect()
 }
 
 pub fn chunk_exists_internal(

@@ -58,5 +58,14 @@ fn main() {
                 info!("Server exited successfully.");
             }
         }
+
+        Some(Command::Validate) => {
+            info!("Starting validation...");
+            if let Err(e) = temper_app::bin_validate::validate() {
+                error!("Validation failed: {}", e);
+            } else {
+                info!("Validation complete. No issues found.");
+            }
+        }
     }
 }

@@ -10,3 +10,4 @@ dashmap = { workspace = true }
 temper-threadpool = { workspace = true }
 crossbeam-queue = { workspace = true }
 tempfile = { workspace = true }
+temper-config = { workspace = true }

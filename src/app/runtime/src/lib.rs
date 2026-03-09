@@ -14,7 +14,7 @@ mod game_loop;
 mod tui;
 
 pub fn entry(start_time: Instant, no_tui: bool) -> Result<(), BinaryError> {
-    let state = launch::create_state(start_time)?;
+    let state = temper_state::create_state(start_time);
     let global_state = Arc::new(state);
     create_whitelist();
 

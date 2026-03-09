@@ -7,6 +7,7 @@ version.workspace = true
 bin-cli = { path = "cli" }
 bin-import = { path = "import" }
 bin-runtime = { path = "runtime" }
+bin-validate = { path = "validate" }
 
 
 [lints]

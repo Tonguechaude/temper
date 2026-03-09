@@ -1,0 +1,16 @@
+[package]
+name = "bin-validate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+temper-world = { workspace = true }
+temper-storage = { workspace = true }
+temper-state = { workspace = true }
+temper-config = { workspace = true }
+heed = { workspace = true }
+yazi = { workspace = true }
+temper-core = { workspace = true }
+indicatif = { workspace = true }
+bitcode = { workspace = true }
+temper-world-format = { workspace = true }
