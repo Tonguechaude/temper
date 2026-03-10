@@ -23,7 +23,6 @@
 //! - Levers - toggles "powered" property
 //! - Buttons - activates temporarily (TODO: timer system)
 
-use std::collections::BTreeMap;
 use temper_core::block_data::BlockData;
 use temper_core::block_state_id::BlockStateId;
 use tracing::{debug, warn};
@@ -99,12 +98,16 @@ pub fn try_interact(block_state_id: BlockStateId) -> InteractionResult {
 
     debug!("try_interact: interaction_type={:?}", interaction_type);
 
-    // Get or create properties map
-    let properties = block_data.properties.get_or_insert_with(BTreeMap::new);
+    let Some(properties) = block_data.properties.as_mut() else {
+        warn!(
+            "try_interact: interactive block '{}' has no properties",
+            block_data.name
+        );
+        return InteractionResult::InvalidBlock;
+    };
 
     match interaction_type {
         InteractionType::Toggleable(prop_name) => {
-            // Toggle the property
             let current_value = properties
                 .get(prop_name)
                 .map(|s| s.as_str())
@@ -157,6 +160,7 @@ pub fn is_interactive(block_state_id: BlockStateId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use temper_core::block_state_id::BlockStateId;
     use temper_macros::block;
 
