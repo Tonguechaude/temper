@@ -1,10 +1,15 @@
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 
+use rustc_hash::FxHashMap;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
 use temper_world::Dimension;
 
 use crate::cost::{IMPASSABLE, block_penalty};
+
+/// Position key for pathfinding maps.
+type PosKey = (i32, i32, i32);
+type PosMap<V> = FxHashMap<PosKey, V>;
 
 /// A path from start to goal, expressed as block positions (feet position).
 pub struct Path {
@@ -50,8 +55,8 @@ pub fn find_path(
     }
 
     let mut open: BinaryHeap<Candidate> = BinaryHeap::new();
-    let mut g_score: HashMap<(i32, i32, i32), i32> = HashMap::new();
-    let mut came_from: HashMap<(i32, i32, i32), (i32, i32, i32)> = HashMap::new();
+    let mut g_score: PosMap<i32> = FxHashMap::default();
+    let mut came_from: PosMap<PosKey> = FxHashMap::default();
 
     g_score.insert(start_key, 0);
     open.push(Candidate {
@@ -110,11 +115,7 @@ fn heuristic(a: BlockPos, b: BlockPos) -> i32 {
     (a.pos.x - b.pos.x).abs() + (a.pos.y - b.pos.y).abs() + (a.pos.z - b.pos.z).abs()
 }
 
-fn reconstruct_path(
-    came_from: HashMap<(i32, i32, i32), (i32, i32, i32)>,
-    target: (i32, i32, i32),
-    start: (i32, i32, i32),
-) -> Path {
+fn reconstruct_path(came_from: PosMap<PosKey>, target: PosKey, start: PosKey) -> Path {
     let mut current = target;
     let mut nodes = vec![from_key(current)];
     while current != start {
