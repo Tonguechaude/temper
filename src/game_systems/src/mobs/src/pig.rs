@@ -150,9 +150,14 @@ fn stop(velocity: &mut Velocity) {
 }
 
 fn pos_to_block(pos: &Position) -> BlockPos {
-    // Add a small epsilon before flooring to avoid floating-point edge cases where
-    // the entity is at exactly the block surface (e.g. y=64.9999... instead of 65.0),
-    // which would incorrectly place the entity one block too low.
+    // TODO(collision): This epsilon is a workaround for imprecise collision resolution.
+    // When an entity lands on a block, the MTV (Minimum Translation Vector) in
+    // `physics/collisions.rs` sometimes leaves the entity at y=64.9999... instead of
+    // exactly y=65.0. Without this epsilon, floor() would return 64 instead of 65,
+    // causing the pathfinding to think the entity is one block lower than it actually is.
+    //
+    // The proper fix is to ensure the collision system snaps entities to exact block
+    // surfaces when resolving vertical collisions (see `handle()` in collisions.rs).
     const EPSILON: f64 = 1e-4;
     BlockPos::of(
         pos.x.floor() as i32,
