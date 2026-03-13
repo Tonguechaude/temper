@@ -1,24 +1,31 @@
-use temper_core::block_state_id::BlockStateId;
+use std::sync::LazyLock;
+
+use temper_core::block_data::BlockData;
+use temper_core::block_state_id::{BlockStateId, ID2BLOCK};
 
 /// Sentinel value meaning the block cannot be traversed.
 pub const IMPASSABLE: i32 = i32::MIN;
+
+/// Precomputed pathfinding costs for all block states.
+/// Indexed by `BlockStateId::raw()`.
+static PATHFINDING_COSTS: LazyLock<Vec<i32>> =
+    LazyLock::new(|| ID2BLOCK.iter().map(compute_cost).collect());
 
 /// Returns the pathfinding penalty for a block, following the Minecraft wiki penalty system:
 /// - IMPASSABLE: solid blocks, fences, walls, closed doors, cactus, lava, etc.
 /// - 0  : air, open trapdoors, lily pads, vegetation
 /// - 8  : water, honey blocks, danger zones (near fire/cactus)
 /// - 16 : fire, lava, magma, lit campfire
+#[inline]
 pub fn block_penalty(id: BlockStateId) -> i32 {
-    if id.raw() == 0 {
-        return 0; // air
-    }
+    PATHFINDING_COSTS[id.raw() as usize]
+}
 
-    let Some(data) = id.to_block_data() else {
-        return IMPASSABLE;
-    };
-
+/// Compute the pathfinding cost for a single block data entry.
+fn compute_cost(data: &BlockData) -> i32 {
     let name = data.name.trim_start_matches("minecraft:");
 
+    // Air variants
     if name.ends_with("air") {
         return 0;
     }
@@ -58,8 +65,7 @@ pub fn block_penalty(id: BlockStateId) -> i32 {
             .properties
             .as_ref()
             .and_then(|p| p.get("open"))
-            .map(|v| v == "true")
-            .unwrap_or(false);
+            .is_some_and(|v| v == "true");
         return if open { 0 } else { IMPASSABLE };
     }
 
@@ -69,8 +75,7 @@ pub fn block_penalty(id: BlockStateId) -> i32 {
             .properties
             .as_ref()
             .and_then(|p| p.get("open"))
-            .map(|v| v == "true")
-            .unwrap_or(false);
+            .is_some_and(|v| v == "true");
         return if open { 0 } else { IMPASSABLE };
     }
 
