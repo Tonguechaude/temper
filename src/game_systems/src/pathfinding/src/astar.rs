@@ -1,5 +1,6 @@
 use std::collections::BinaryHeap;
 
+use arrayvec::ArrayVec;
 use rustc_hash::FxHashMap;
 use temper_core::block_state_id::BlockStateId;
 use temper_core::pos::BlockPos;
@@ -128,10 +129,16 @@ fn reconstruct_path(came_from: PosMap<PosKey>, target: PosKey, start: PosKey) ->
 
 const CARDINALS: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
+/// Maximum number of neighbors per node (one per cardinal direction).
+const MAX_NEIGHBORS: usize = 4;
+
 /// Generate passable neighbors for a 1-block-tall land mob (e.g. pig, height=0.9).
 /// Handles flat walking, stepping up 1 block, and stepping down 1 block.
-fn neighbors(world: &temper_world::World, pos: BlockPos) -> Vec<(BlockPos, i32)> {
-    let mut result = Vec::with_capacity(5);
+fn neighbors(
+    world: &temper_world::World,
+    pos: BlockPos,
+) -> ArrayVec<(BlockPos, i32), MAX_NEIGHBORS> {
+    let mut result = ArrayVec::new();
 
     for (dx, dz) in CARDINALS {
         let nx = pos.pos.x + dx;
