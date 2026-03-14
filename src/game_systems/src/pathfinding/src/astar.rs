@@ -9,10 +9,6 @@ use temper_world::Dimension;
 
 use crate::cost::{IMPASSABLE, block_penalty};
 
-/// Position key for pathfinding maps.
-type PosKey = (i32, i32, i32);
-type PosMap<V> = FxHashMap<PosKey, V>;
-
 /// A path from start to goal, expressed as block positions (feet position).
 pub struct Path {
     pub nodes: Vec<BlockPos>,
@@ -24,7 +20,7 @@ pub struct Path {
 struct Candidate {
     estimated_cost: i32, // f = g + h
     real_cost: i32,      // g
-    pos: (i32, i32, i32),
+    pos: BlockPos,
 }
 
 impl Ord for Candidate {
@@ -74,22 +70,20 @@ pub fn find_path(
     physical: &PhysicalProperties,
 ) -> Option<Path> {
     let dims = EntityDimensions::from_physical(physical);
-    let start_key = to_key(start);
-    let goal_key = to_key(goal);
 
-    if start_key == goal_key {
+    if start == goal {
         return Some(Path { nodes: vec![goal] });
     }
 
     let mut open: BinaryHeap<Candidate> = BinaryHeap::new();
-    let mut g_score: PosMap<i32> = FxHashMap::default();
-    let mut came_from: PosMap<PosKey> = FxHashMap::default();
+    let mut g_score: FxHashMap<BlockPos, i32> = FxHashMap::default();
+    let mut came_from: FxHashMap<BlockPos, BlockPos> = FxHashMap::default();
 
-    g_score.insert(start_key, 0);
+    g_score.insert(start, 0);
     open.push(Candidate {
         estimated_cost: heuristic(start, goal),
         real_cost: 0,
-        pos: start_key,
+        pos: start,
     });
 
     let mut iterations = 0;
@@ -99,43 +93,33 @@ pub fn find_path(
         }
         iterations += 1;
 
-        if pos == goal_key {
-            return Some(reconstruct_path(came_from, pos, start_key));
+        if pos == goal {
+            return Some(reconstruct_path(came_from, pos, start));
         }
 
         if real_cost > *g_score.get(&pos).unwrap_or(&i32::MAX) {
             continue;
         }
 
-        let current = from_key(pos);
-        for (neighbor, move_cost) in neighbors(world, current, dims) {
-            let neighbor_key = to_key(neighbor);
+        for (neighbor, move_cost) in neighbors(world, pos, dims) {
             let tentative_g = real_cost + move_cost;
 
             if g_score
-                .get(&neighbor_key)
+                .get(&neighbor)
                 .is_none_or(|&best| tentative_g < best)
             {
-                g_score.insert(neighbor_key, tentative_g);
-                came_from.insert(neighbor_key, pos);
+                g_score.insert(neighbor, tentative_g);
+                came_from.insert(neighbor, pos);
                 open.push(Candidate {
                     estimated_cost: tentative_g + heuristic(neighbor, goal),
                     real_cost: tentative_g,
-                    pos: neighbor_key,
+                    pos: neighbor,
                 });
             }
         }
     }
 
     None
-}
-
-fn to_key(pos: BlockPos) -> (i32, i32, i32) {
-    (pos.pos.x, pos.pos.y, pos.pos.z)
-}
-
-fn from_key((x, y, z): (i32, i32, i32)) -> BlockPos {
-    BlockPos::of(x, y, z)
 }
 
 /// Heuristic using octile distance (accounts for diagonal movement).
@@ -154,12 +138,16 @@ fn heuristic(a: BlockPos, b: BlockPos) -> i32 {
     min_xz * COST_DIAGONAL + (max_xz - min_xz) * COST_CARDINAL + dy * COST_CARDINAL
 }
 
-fn reconstruct_path(came_from: PosMap<PosKey>, target: PosKey, start: PosKey) -> Path {
+fn reconstruct_path(
+    came_from: FxHashMap<BlockPos, BlockPos>,
+    target: BlockPos,
+    start: BlockPos,
+) -> Path {
     let mut current = target;
-    let mut nodes = vec![from_key(current)];
+    let mut nodes = vec![current];
     while current != start {
         current = came_from[&current];
-        nodes.push(from_key(current));
+        nodes.push(current);
     }
     nodes.reverse();
     Path { nodes }
