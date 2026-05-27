@@ -54,7 +54,7 @@ impl World {
 
         progress.set_message("Setting up database and preparing import...");
 
-        self.storage_backend.create_table("chunks".to_string())?;
+        self.storage_backend.create_table("chunks")?;
 
         let start = std::time::Instant::now();
 

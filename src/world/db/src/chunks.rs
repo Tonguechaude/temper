@@ -14,8 +14,8 @@ pub fn save_chunk_internal(
     dimension: Dimension,
     chunk: &Chunk,
 ) -> Result<(), WorldError> {
-    if !storage.table_exists("chunks".to_string())? {
-        storage.create_table("chunks".to_string())?;
+    if !storage.table_exists("chunks")? {
+        storage.create_table("chunks")?;
     }
     let as_bytes = yazi::compress(
         &bitcode::serialize(chunk).expect("Unable to serialize chunk"),
@@ -23,7 +23,7 @@ pub fn save_chunk_internal(
         CompressionLevel::BestSpeed,
     )?;
     let digest = create_key(dimension, pos);
-    storage.upsert("chunks".to_string(), digest, as_bytes)?;
+    storage.upsert("chunks", digest, as_bytes)?;
     Ok(())
 }
 
@@ -34,7 +34,7 @@ pub fn load_chunk_internal(
     verify: bool,
 ) -> Result<Chunk, WorldError> {
     let digest = create_key(dimension, pos);
-    match storage.get("chunks".to_string(), digest)? {
+    match storage.get("chunks", digest)? {
         Some(compressed) => {
             let (data, checksum) = yazi::decompress(compressed.as_slice(), yazi::Format::Zlib)?;
             if verify {
@@ -60,11 +60,11 @@ pub fn chunk_exists_internal(
     pos: ChunkPos,
     dimension: Dimension,
 ) -> Result<bool, WorldError> {
-    if !storage.table_exists("chunks".to_string())? {
+    if !storage.table_exists("chunks")? {
         return Ok(false);
     }
     let digest = create_key(dimension, pos);
-    Ok(storage.exists("chunks".to_string(), digest)?)
+    Ok(storage.exists("chunks", digest)?)
 }
 
 pub fn delete_chunk_internal(
@@ -73,7 +73,7 @@ pub fn delete_chunk_internal(
     dimension: Dimension,
 ) -> Result<(), WorldError> {
     let digest = create_key(dimension, pos);
-    storage.delete("chunks".to_string(), digest)?;
+    storage.delete("chunks", digest)?;
     Ok(())
 }
 

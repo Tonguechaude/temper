@@ -59,14 +59,14 @@ pub fn setup_db(state: GlobalState) -> Result<(), BinaryError> {
 
     let chunk_key = string_to_u128("chunk-format-hash");
     state.world.storage_backend.insert(
-        "metadata".to_string(),
+        "metadata",
         chunk_key,
         Chunk::type_hash().to_be_bytes().to_vec(),
     )?;
 
     let player_key = string_to_u128("player-format-hash");
     state.world.storage_backend.insert(
-        "metadata".to_string(),
+        "metadata",
         player_key,
         OfflinePlayerData::type_hash().to_be_bytes().to_vec(),
     )?;

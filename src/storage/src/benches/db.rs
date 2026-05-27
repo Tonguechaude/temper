@@ -28,14 +28,14 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
 
     let db = StorageBackend::initialize(Some(tempdir), 100 * 1024 * 1024 * 1024).unwrap();
 
-    db.create_table("insert_test".to_string()).unwrap();
+    db.create_table("insert_test").unwrap();
 
     let mut insert_group = c.benchmark_group("Insert");
 
     insert_group.bench_function("512b".to_string(), |b| {
         b.iter(|| {
             db.insert(
-                "insert_test".to_string(),
+                "insert_test",
                 generate_random_key(&mut used_keys),
                 generate_random_data(512),
             )
@@ -46,7 +46,7 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
     insert_group.bench_function("1kb".to_string(), |b| {
         b.iter(|| {
             db.insert(
-                "insert_test".to_string(),
+                "insert_test",
                 generate_random_key(&mut used_keys),
                 generate_random_data(1024),
             )
@@ -57,7 +57,7 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
     insert_group.bench_function("4kb".to_string(), |b| {
         b.iter(|| {
             db.insert(
-                "insert_test".to_string(),
+                "insert_test",
                 generate_random_key(&mut used_keys),
                 generate_random_data(4096),
             )
@@ -69,20 +69,20 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
 
     let mut read_group = c.benchmark_group("Read");
 
-    db.create_table("read_test".to_string()).unwrap();
+    db.create_table("read_test").unwrap();
 
     let keys_512b = (0..1000)
         .map(|_| generate_random_key(&mut used_keys))
         .collect::<Vec<_>>();
 
     for key in keys_512b.iter() {
-        db.insert("read_test".to_string(), *key, generate_random_data(512))
+        db.insert("read_test", *key, generate_random_data(512))
             .unwrap();
     }
 
     read_group.bench_function("512b".to_string(), |b| {
         b.iter(|| {
-            db.get("read_test".to_string(), select_random(keys_512b.clone()))
+            db.get("read_test", select_random(keys_512b.clone()))
                 .unwrap();
         })
     });
@@ -92,13 +92,13 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
         .collect::<Vec<_>>();
 
     for key in keys_1kb.iter() {
-        db.insert("read_test".to_string(), *key, generate_random_data(1024))
+        db.insert("read_test", *key, generate_random_data(1024))
             .unwrap();
     }
 
     read_group.bench_function("1kb".to_string(), |b| {
         b.iter(|| {
-            db.get("read_test".to_string(), select_random(keys_1kb.clone()))
+            db.get("read_test", select_random(keys_1kb.clone()))
                 .unwrap();
         })
     });
@@ -108,13 +108,13 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
         .collect::<Vec<_>>();
 
     for key in keys_4kb.iter() {
-        db.insert("read_test".to_string(), *key, generate_random_data(4096))
+        db.insert("read_test", *key, generate_random_data(4096))
             .unwrap();
     }
 
     read_group.bench_function("4kb".to_string(), |b| {
         b.iter(|| {
-            db.get("read_test".to_string(), select_random(keys_4kb.clone()))
+            db.get("read_test", select_random(keys_4kb.clone()))
                 .unwrap();
         })
     });

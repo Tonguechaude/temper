@@ -52,7 +52,7 @@ impl StorageBackend {
         }
     }
 
-    pub fn insert(&self, table: String, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
+    pub fn insert(&self, table: &str, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
         let env = self.env.lock();
         let mut rw_txn = env.write_txn()?;
         let db: Database<U128<BigEndian>, Bytes> =
@@ -64,7 +64,7 @@ impl StorageBackend {
         Ok(())
     }
 
-    pub fn get(&self, table: String, key: u128) -> Result<Option<Vec<u8>>, StorageError> {
+    pub fn get(&self, table: &str, key: u128) -> Result<Option<Vec<u8>>, StorageError> {
         let env = self.env.lock();
         let ro_txn = env.read_txn()?;
         let db: Database<U128<BigEndian>, Bytes> = env
@@ -73,7 +73,7 @@ impl StorageBackend {
         Ok(db.get(&ro_txn, &key)?.map(|v| v.to_vec()))
     }
 
-    pub fn delete(&self, table: String, key: u128) -> Result<(), StorageError> {
+    pub fn delete(&self, table: &str, key: u128) -> Result<(), StorageError> {
         let env = self.env.lock();
         let mut rw_txn = env.write_txn()?;
         let db: Database<U128<BigEndian>, Bytes> = env
@@ -86,7 +86,7 @@ impl StorageBackend {
         Ok(())
     }
 
-    pub fn update(&self, table: String, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
+    pub fn update(&self, table: &str, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
         let env = self.env.lock();
         let mut rw_txn = env.write_txn()?;
         let db: Database<U128<BigEndian>, Bytes> = env
@@ -100,7 +100,7 @@ impl StorageBackend {
         Ok(())
     }
 
-    pub fn upsert(&self, table: String, key: u128, value: Vec<u8>) -> Result<bool, StorageError> {
+    pub fn upsert(&self, table: &str, key: u128, value: Vec<u8>) -> Result<bool, StorageError> {
         let env = self.env.lock();
         let mut rw_txn = env.write_txn()?;
         let db: Database<U128<BigEndian>, Bytes> = env
@@ -111,7 +111,7 @@ impl StorageBackend {
         Ok(true)
     }
 
-    pub fn exists(&self, table: String, key: u128) -> Result<bool, StorageError> {
+    pub fn exists(&self, table: &str, key: u128) -> Result<bool, StorageError> {
         let env = self.env.lock();
         let ro_txn = env.read_txn()?;
         let db: Database<U128<BigEndian>, Bytes> = env
@@ -120,7 +120,7 @@ impl StorageBackend {
         Ok(db.get(&ro_txn, &key)?.is_some())
     }
 
-    pub fn table_exists(&self, table: String) -> Result<bool, StorageError> {
+    pub fn table_exists(&self, table: &str) -> Result<bool, StorageError> {
         let env = self.env.lock();
         let ro_txn = env.read_txn()?;
         let db = env.open_database::<U128<BigEndian>, Bytes>(&ro_txn, Some(&table))?;
@@ -138,7 +138,7 @@ impl StorageBackend {
         Ok(())
     }
 
-    pub fn create_table(&self, table: String) -> Result<(), StorageError> {
+    pub fn create_table(&self, table: &str) -> Result<(), StorageError> {
         let env = self.env.lock();
         let mut rw_txn = env.write_txn()?;
         env.create_database::<U128<BigEndian>, Bytes>(&mut rw_txn, Some(&table))?;
@@ -176,13 +176,11 @@ mod tests {
         {
             let backend =
                 StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
-            backend.create_table("test_table".to_string()).unwrap();
+            backend.create_table("test_table").unwrap();
             let key = 12345678901234567890u128;
             let value = vec![1, 2, 3, 4, 5];
-            backend
-                .insert("test_table".to_string(), key, value.clone())
-                .unwrap();
-            let retrieved_value = backend.get("test_table".to_string(), key).unwrap();
+            backend.insert("test_table", key, value.clone()).unwrap();
+            let retrieved_value = backend.get("test_table", key).unwrap();
             assert_eq!(retrieved_value, Some(value));
         }
         remove_dir_all(path).unwrap();
@@ -194,7 +192,7 @@ mod tests {
         {
             let backend =
                 StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
-            backend.create_table("test_table".to_string()).unwrap();
+            backend.create_table("test_table").unwrap();
             let mut threads = vec![];
             for thread_iter in 0..10 {
                 let handle = std::thread::spawn({
@@ -203,9 +201,7 @@ mod tests {
                         for iter in 0..100 {
                             let key = hash_2_to_u128(iter, thread_iter);
                             let value = vec![rand::random::<u8>(); 10];
-                            backend
-                                .insert("test_table".to_string(), key, value)
-                                .unwrap();
+                            backend.insert("test_table", key, value).unwrap();
                         }
                     }
                 });
@@ -224,14 +220,12 @@ mod tests {
         {
             let backend =
                 StorageBackend::initialize(Some(path.clone()), 10 * 1024 * 1024 * 1024).unwrap();
-            backend.create_table("test_table".to_string()).unwrap();
+            backend.create_table("test_table").unwrap();
             for thread_iter in 0..10 {
                 for iter in 0..100 {
                     let value = vec![rand::random::<u8>(); 10];
                     let key = hash_2_to_u128(iter, thread_iter);
-                    backend
-                        .insert("test_table".to_string(), key, value)
-                        .unwrap();
+                    backend.insert("test_table", key, value).unwrap();
                 }
             }
             let mut threads = vec![];
@@ -241,7 +235,7 @@ mod tests {
                     move || {
                         for iter in 0..100 {
                             let key = hash_2_to_u128(iter, thread_iter);
-                            let _ = backend.get("test_table".to_string(), key).unwrap();
+                            let _ = backend.get("test_table", key).unwrap();
                         }
                     }
                 });
