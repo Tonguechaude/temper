@@ -57,10 +57,9 @@ impl StorageBackend {
         let mut rw_txn = env.write_txn()?;
         let db: Database<U128<BigEndian>, Bytes> =
             env.create_database(&mut rw_txn, Some(&table))?;
-        if db.get(&rw_txn, &key)?.is_some() {
+        if db.get_or_put(&mut rw_txn, &key, &value)?.is_some() {
             return Err(StorageError::KeyExists(key as u64));
         }
-        db.put(&mut rw_txn, &key, &value)?;
         rw_txn.commit()?;
         Ok(())
     }
@@ -71,12 +70,7 @@ impl StorageBackend {
         let db: Database<U128<BigEndian>, Bytes> = env
             .open_database(&ro_txn, Some(&table))?
             .ok_or(StorageError::TableError("Table not found".to_string()))?;
-        let value = db.get(&ro_txn, &key)?;
-        if let Some(v) = value {
-            Ok(Some(v.to_vec()))
-        } else {
-            Ok(None)
-        }
+        Ok(db.get(&ro_txn, &key)?.map(|v| v.to_vec()))
     }
 
     pub fn delete(&self, table: String, key: u128) -> Result<(), StorageError> {
@@ -85,10 +79,9 @@ impl StorageBackend {
         let db: Database<U128<BigEndian>, Bytes> = env
             .open_database(&rw_txn, Some(&table))?
             .ok_or(StorageError::TableError("Table not found".to_string()))?;
-        if db.get(&rw_txn, &key)?.is_none() {
+        if !db.delete(&mut rw_txn, &key)? {
             return Err(StorageError::KeyNotFound(key as u64));
         }
-        db.delete(&mut rw_txn, &key)?;
         rw_txn.commit()?;
         Ok(())
     }
