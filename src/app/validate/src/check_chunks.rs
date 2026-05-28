@@ -10,7 +10,7 @@ use tracing::{error, warn};
 use type_hash::TypeHash;
 
 pub fn check_chunks(state: &ServerState) -> Result<(), String> {
-    let env = state.world.storage_backend.env.lock();
+    let env = &state.world.storage_backend.env;
     let txn = env
         .read_txn()
         .map_err(|e| format!("Failed to create read transaction: {}", e))?;
