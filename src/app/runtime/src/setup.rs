@@ -57,15 +57,17 @@ pub fn generate_spawn_chunks(state: GlobalState) -> Result<(), BinaryError> {
 pub fn setup_db(state: GlobalState) -> Result<(), BinaryError> {
     info!("Setting up database...");
 
+    state.world.storage_backend.create_table("metadata")?;
+
     let chunk_key = string_to_u128("chunk-format-hash");
-    state.world.storage_backend.insert(
+    state.world.storage_backend.upsert(
         "metadata",
         chunk_key,
         Chunk::type_hash().to_be_bytes().to_vec(),
     )?;
 
     let player_key = string_to_u128("player-format-hash");
-    state.world.storage_backend.insert(
+    state.world.storage_backend.upsert(
         "metadata",
         player_key,
         OfflinePlayerData::type_hash().to_be_bytes().to_vec(),

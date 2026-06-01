@@ -1,14 +1,18 @@
 use crate::errors::StorageError;
+use dashmap::DashMap;
 use heed;
 use heed::byteorder::BigEndian;
 use heed::types::{Bytes, U128};
 use heed::{Database, Env, EnvOpenOptions, WithoutTls};
+use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct StorageBackend {
     pub env: Arc<Env<WithoutTls>>,
+    dbs: Arc<DashMap<String, Database<U128<BigEndian>, Bytes>>>,
+    dbi_open_lock: Arc<parking_lot::Mutex<()>>,
 }
 
 impl From<heed::Error> for StorageError {
@@ -46,6 +50,8 @@ impl StorageBackend {
                         .open(checked_path)
                         .map_err(|e| StorageError::DatabaseInitError(e.to_string()))?,
                 ),
+                dbs: Arc::new(DashMap::new()),
+                dbi_open_lock: Arc::new(parking_lot::Mutex::new(())),
             };
             Ok(backend)
         }
@@ -53,8 +59,7 @@ impl StorageBackend {
 
     pub fn insert(&self, table: &str, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
         let mut rw_txn = self.env.write_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> =
-            self.env.create_database(&mut rw_txn, Some(table))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         if db.get_or_put(&mut rw_txn, &key, &value)?.is_some() {
             return Err(StorageError::KeyExists(key as u64));
         }
@@ -64,19 +69,13 @@ impl StorageBackend {
 
     pub fn get(&self, table: &str, key: u128) -> Result<Option<Vec<u8>>, StorageError> {
         let ro_txn = self.env.read_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = self
-            .env
-            .open_database(&ro_txn, Some(table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         Ok(db.get(&ro_txn, &key)?.map(|v| v.to_vec()))
     }
 
     pub fn delete(&self, table: &str, key: u128) -> Result<(), StorageError> {
         let mut rw_txn = self.env.write_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = self
-            .env
-            .open_database(&rw_txn, Some(table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         if !db.delete(&mut rw_txn, &key)? {
             return Err(StorageError::KeyNotFound(key as u64));
         }
@@ -86,10 +85,7 @@ impl StorageBackend {
 
     pub fn update(&self, table: &str, key: u128, value: Vec<u8>) -> Result<(), StorageError> {
         let mut rw_txn = self.env.write_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = self
-            .env
-            .open_database(&rw_txn, Some(table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         if db.get(&rw_txn, &key)?.is_none() {
             return Err(StorageError::KeyNotFound(key as u64));
         }
@@ -100,10 +96,7 @@ impl StorageBackend {
 
     pub fn upsert(&self, table: &str, key: u128, value: Vec<u8>) -> Result<bool, StorageError> {
         let mut rw_txn = self.env.write_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = self
-            .env
-            .open_database(&rw_txn, Some(table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         db.put(&mut rw_txn, &key, &value)?;
         rw_txn.commit()?;
         Ok(true)
@@ -111,19 +104,12 @@ impl StorageBackend {
 
     pub fn exists(&self, table: &str, key: u128) -> Result<bool, StorageError> {
         let ro_txn = self.env.read_txn()?;
-        let db: Database<U128<BigEndian>, Bytes> = self
-            .env
-            .open_database(&ro_txn, Some(table))?
-            .ok_or(StorageError::TableError("Table not found".to_string()))?;
+        let db: Database<U128<BigEndian>, Bytes> = self.get_db(table)?;
         Ok(db.get(&ro_txn, &key)?.is_some())
     }
 
     pub fn table_exists(&self, table: &str) -> Result<bool, StorageError> {
-        let ro_txn = self.env.read_txn()?;
-        let db = self
-            .env
-            .open_database::<U128<BigEndian>, Bytes>(&ro_txn, Some(table))?;
-        Ok(db.is_some())
+        Ok(self.dbs.contains_key(table))
     }
 
     pub fn details(&self) -> String {
@@ -138,9 +124,11 @@ impl StorageBackend {
 
     pub fn create_table(&self, table: &str) -> Result<(), StorageError> {
         let mut rw_txn = self.env.write_txn()?;
-        self.env
+        let db = self
+            .env
             .create_database::<U128<BigEndian>, Bytes>(&mut rw_txn, Some(table))?;
         rw_txn.commit()?;
+        self.dbs.insert(table.to_string(), db);
         Ok(())
     }
 
@@ -151,6 +139,26 @@ impl StorageBackend {
 
     pub fn get_env(&self) -> Arc<Env<WithoutTls>> {
         self.env.clone()
+    }
+
+    fn get_db(&self, table: &str) -> Result<Database<U128<BigEndian>, Bytes>, StorageError> {
+        // Already in cache
+        if let Some(db) = self.dbs.get(table) {
+            return Ok(*db);
+        }
+        // First time
+        let _lock = self.dbi_open_lock.lock();
+        // Double-check
+        if let Some(db) = self.dbs.get(table) {
+            return Ok(*db);
+        }
+        let ro_txn = self.env.read_txn()?;
+        let db = self
+            .env
+            .open_database::<U128<BigEndian>, Bytes>(&ro_txn, Some(table))?
+            .ok_or_else(|| StorageError::TableError("Table not found".to_string()))?;
+        self.dbs.insert(table.to_string(), db);
+        Ok(db)
     }
 }
 
