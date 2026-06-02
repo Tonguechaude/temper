@@ -12,7 +12,7 @@ use std::sync::Arc;
 pub struct StorageBackend {
     pub env: Arc<Env<WithoutTls>>,
     dbs: Arc<DashMap<String, Database<U128<BigEndian>, Bytes>>>,
-    dbi_open_lock: Arc<parking_lot::Mutex<()>>,
+    dbi_open_lock: Arc<Mutex<()>>,
 }
 
 impl From<heed::Error> for StorageError {
@@ -51,7 +51,7 @@ impl StorageBackend {
                         .map_err(|e| StorageError::DatabaseInitError(e.to_string()))?,
                 ),
                 dbs: Arc::new(DashMap::new()),
-                dbi_open_lock: Arc::new(parking_lot::Mutex::new(())),
+                dbi_open_lock: Arc::new(Mutex::new(())),
             };
             Ok(backend)
         }
@@ -109,7 +109,25 @@ impl StorageBackend {
     }
 
     pub fn table_exists(&self, table: &str) -> Result<bool, StorageError> {
-        Ok(self.dbs.contains_key(table))
+        if self.dbs.contains_key(table) {
+            return Ok(true);
+        }
+        let _lock = self.dbi_open_lock.lock();
+        if self.dbs.contains_key(table) {
+            return Ok(true);
+        }
+        let rw_txn = self.env.write_txn()?;
+        match self
+            .env
+            .open_database::<U128<BigEndian>, Bytes>(&rw_txn, Some(table))?
+        {
+            Some(db) => {
+                rw_txn.commit()?;
+                self.dbs.insert(table.to_string(), db);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
     }
 
     pub fn details(&self) -> String {
@@ -152,11 +170,12 @@ impl StorageBackend {
         if let Some(db) = self.dbs.get(table) {
             return Ok(*db);
         }
-        let ro_txn = self.env.read_txn()?;
+        let rw_txn = self.env.write_txn()?;
         let db = self
             .env
-            .open_database::<U128<BigEndian>, Bytes>(&ro_txn, Some(table))?
+            .open_database::<U128<BigEndian>, Bytes>(&rw_txn, Some(table))?
             .ok_or_else(|| StorageError::TableError("Table not found".to_string()))?;
+        rw_txn.commit()?;
         self.dbs.insert(table.to_string(), db);
         Ok(db)
     }
