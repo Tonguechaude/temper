@@ -107,8 +107,6 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
 
     read_group.finish();
 
-    let mut concurrent_group = c.benchmark_group("ConcurrentRead");
-
     db.create_table("concurrent_test").unwrap();
 
     let concurrent_keys: Vec<u128> = (0..1000)
@@ -121,27 +119,31 @@ pub(crate) fn db_benches(c: &mut criterion::Criterion) {
 
     let db = Arc::new(db);
 
+    let mut pool_group = c.benchmark_group("ConcurrentReadPool");
+
     for thread_count in [2usize, 4, 8, 16] {
         let db = Arc::clone(&db);
         let keys = concurrent_keys.clone();
 
-        concurrent_group.bench_function(format!("{thread_count}_threads_512b"), |b| {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(thread_count)
+            .build()
+            .unwrap();
+
+        pool_group.bench_function(format!("{thread_count}_threads_512b"), |b| {
             b.iter(|| {
-                let handles: Vec<_> = (0..thread_count)
-                    .map(|_| {
+                pool.scope(|s| {
+                    for _ in 0..thread_count {
                         let db = Arc::clone(&db);
                         let keys = keys.clone();
-                        std::thread::spawn(move || {
+                        s.spawn(move |_| {
                             db.get("concurrent_test", select_random(&keys)).unwrap();
-                        })
-                    })
-                    .collect();
-                for h in handles {
-                    h.join().unwrap();
-                }
+                        });
+                    }
+                });
             })
         });
     }
 
-    concurrent_group.finish();
+    pool_group.finish();
 }
