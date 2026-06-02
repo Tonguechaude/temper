@@ -131,7 +131,7 @@ impl StorageBackend {
     }
 
     pub fn details(&self) -> String {
-        format!("LMDB (heed 0.20.5): {:?}", self.env.info())
+        format!("LMDB (heed 0.22.1): {:?}", self.env.info())
     }
 
     pub fn flush(&self) -> Result<(), StorageError> {
