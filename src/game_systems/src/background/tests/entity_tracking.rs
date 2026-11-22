@@ -1,5 +1,6 @@
 use background::entity_tracking::refresh_visible_entities;
 use bevy_ecs::prelude::{Schedule, World};
+use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use temper_components::entity_identity::Identity;
@@ -59,7 +60,11 @@ async fn visible_mobs_without_stream_writers_stay_tracked() {
         .id();
 
     let mut chunk_receiver = ChunkReceiver::default();
-    chunk_receiver.chunks.mark_loaded(mob_position.chunk());
+    let visible_chunk = mob_position.chunk();
+    chunk_receiver
+        .chunks
+        .set_needed(&HashSet::from([visible_chunk]));
+    assert!(chunk_receiver.chunks.mark_loaded(visible_chunk));
 
     let mut tracker = EntityTracker::default();
     tracker.tracking.insert(mob_entity);
