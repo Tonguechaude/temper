@@ -214,6 +214,7 @@ fn player_movement_is_not_queued_for_generic_entity_sync() {
     world.insert_resource(state);
     world.insert_resource(PhysicalRegistry::new());
     MessageRegistry::register_message::<SendEntityUpdate>(&mut world);
+    MessageRegistry::register_message::<DamageEvent>(&mut world);
 
     let mut bundle = PlayerBundle {
         identity: Identity::new(Some("Steve".to_string())),
